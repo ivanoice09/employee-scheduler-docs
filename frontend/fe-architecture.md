@@ -23,9 +23,9 @@ This app primarily uses framework angular.
 
 ## Routing
 
-1. After login, the user will be redirected to the `schedule` component which has a parameterized URL, such as: `http://localhost:4200/schedule/{year}/{week}`. But it is not possible to be redirected **directly** to a parameterized URL right after logging in, because you need to pass the arguments first.
+1. Upon startup the user will be redirected to the `schedule` component which has a parameterized URL, such as: `http://localhost:4200/schedule/{year}/{week}`. But it is not possible to be redirected **directly** to a parameterized URL right after logging in, because you need to pass the *arguments* first.
 
-2. Before passing those arguments, I made a **Redirect Component** (located inside `schedule.ts`) which only purpose is to trigger a specific **guard**.
+2. Before passing those *arguments*, I made `RedirectComponent` (located inside `schedule.ts`) which only purpose is to activate `current-week-redirect-guard.ts`. This is technically where the client ends up upon starting the app, not on schedule component.
 
     ```typescript
     @Component({
@@ -34,9 +34,18 @@ This app primarily uses framework angular.
     export class RedirectComponent {}
     ```
 
-3. This **guard** will pass those arguments, by utilizing **week-util** service functions.
+3. `current-week-redirect-guard.ts` is activated by `RedirectComponent`'s path which is located inside `app.routes.ts`.
 
-- `current-week-redirect-guard.ts`. The arguments which will be passed depend on the current week number:
+    ```typescript
+    { 
+        path: '', 
+        component: RedirectComponent,
+        canActivate: [currentWeekRedirectGuard], 
+        pathMatch: 'full',
+    }
+    ```
+
+4. `current-week-redirect-guard.ts` will generate the values for the current year and weekNumber by utilizing `week-util.ts` functions. And then these values will be the *arugments* passed on the schedule parameterized URL.
 
     ```typescript
     export const currentWeekRedirectGuard: CanActivateFn = () => {
@@ -49,19 +58,16 @@ This app primarily uses framework angular.
     return router.createUrlTree(['/schedule', year, week]);     // Now the schedule component route have the arguments.
     };
     ```
-
-- the guard is used by this specific route. Code is located inside `app.routes.ts`.
-
     ```typescript
+    // currentWeekRedirectGuard invokes this path through:
+    // return router.createUrlTree(['/schedule', year, week]);
     { 
-        path: '', 
-        component: RedirectComponent,
-        canActivate: [currentWeekRedirectGuard],    // Once sent to this redirect component, the guard activates.
-        pathMatch: 'full',
+        path: 'schedule/:year/:week',
+        component: Schedule,
     }
     ```
 
-- `week-util.ts`. The functions that calculate the current week number and year:
+- `week-util.ts`. The utility functions that calculate the current week number and year:
 
     ```typescript
     getCurrentYear(): number {
@@ -77,6 +83,30 @@ This app primarily uses framework angular.
         return Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
     }
     ```
+
+5. And finally, `Schedule.ts`'s OnInit() method will just GET those year and week values directly from the URL route:
+
+    ```typescript
+    ngOnInit(): void {
+        this.route.paramMap
+      .pipe(
+        switchMap((params) => {
+          const year = Number(params.get('year'));
+          const week = Number(params.get('week'));
+          return this.scheduleService.getWeek(year, week);
+        }),
+      )
+      .subscribe((week) => {
+        this.weekSubject.next(week);
+        this.currentWeekStartDate = week.startDate;
+
+        // more code here...
+
+      });
+    }
+    ```
+
+scheduleService.getWeek() will actually return the schedule data we expect.
 
 - Routing flow diagram:
 

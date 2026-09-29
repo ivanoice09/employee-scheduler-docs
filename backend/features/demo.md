@@ -5,3 +5,5 @@ Allow visitors to have their own sandbox: they can edit, create and delete data.
 - I will use the UUID in cookies and not store it anywhere.
 - Employees are global and NOT per-session means they won't be altered by visitors.
 
+## Version 2
+- Now UUID's are stored in the UUID
