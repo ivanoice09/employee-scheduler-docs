@@ -106,10 +106,8 @@ This app primarily uses framework angular.
     }
     ```
 
-scheduleService.getWeek() will actually return the schedule data we expect.
-
 - Routing flow diagram:
 
     ```text
-    login -> redirect component -> guard -> schedule component
+    login -> redirect-component -> guard -> schedule-component
     ```
