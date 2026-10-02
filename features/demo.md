@@ -4,17 +4,14 @@ Allow visitors to add shifts on employees on a specific week, after adding it th
 
 To make the demo beginner friendly this app won't have any authentication, they will be able to test the app right away.
 
-## Implementation
+## Implementation plan
 
-1. I created a new Entity called "DemoSession" and a database table called "demo_sessions".
+1. Create a new Entity called "DemoSession" and a database table called "demo_sessions". Here are the fields:
 
-2. A new session will be stored inside "demo_sessions" on the first request. The request is when saving a new "Week":
+- `demo_session_id` as PRIMARY KEY
+- `created_at`
+- `last_active_at` (Please ignore for now, will be used in the future versions)
 
-```Java
-@PostMapping("/save")
-public void saveWeek(@RequestBody SaveWeekDTO dto) {
-    scheduleService.saveWeek(dto);
-}
-```
+2. The very first request of my app is the getWeek(). See startup.md and scheduler.md for details. I did not add { withCredentials: true } on its service method because this is the first request that will be sent on startup to avoid triggering the 401 error. So when does the server will add a new session?
 
-3. This new row will have its "created_at" field which will track the expiration time.
+3. A row of demo_sessions will be generated when the user saves a schedule. See scheduler.md to see how saving schedules work. At the same time a cookie will also be generated, and together with the response they will be sent and set on the browser.
