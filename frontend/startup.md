@@ -1,27 +1,4 @@
-# Frontend Architecture
-This app primarily uses framework angular.
-
-## Folder layout
-```text
-.
-└── \src\app/
-    ├── core/
-    │   └── layout/
-    │       └── navbar
-    ├── features/
-    │   └── schedule
-    ├── guard
-    ├── shared/
-    │   ├── DTO
-    │   └── services
-    └── utils
-```
-
-## Features
-
-- **Scheduler** - the app's **homepage** located inside the `schedule` component folder.
-
-## Routing
+# How the app starts on client-side
 
 1. Upon startup the user will be redirected to the `schedule` component which has a parameterized URL, such as: `http://localhost:4200/schedule/{year}/{week}`. But it is not possible to be redirected **directly** to a parameterized URL right after logging in, because you need to pass the *arguments* first.
 
@@ -103,6 +80,15 @@ This app primarily uses framework angular.
         // more code here...
 
       });
+    }
+    ```
+    ```typescript
+    // scheduleService.getWeek(year, weekNumber) inside schedule-service.ts
+    getWeek(year: number, weekNumber: number): Observable<WeekDTO> {
+        return this.http.get<WeekDTO>(
+            `${this.baseUrl}/${year}/${weekNumber}`, 
+            { withCredentials: true } // tells the browser to attach cookies to the outgoing HTTP request.
+        );
     }
     ```
 
