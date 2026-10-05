@@ -49,7 +49,7 @@ public WeekDTO getWeek(int year, int weekNumber) {
     ```json
     // WeekDTO payload response example:
     {
-        {
+        
         "assignments": [
             {
                 "employeeId": 1,
@@ -77,11 +77,50 @@ public WeekDTO getWeek(int year, int weekNumber) {
         "status": "DRAFT",
         "weekNumber": 41,
         "year": 2026
-        }
+        
+    }
+    ```
+    ```java
+    // Full code
+    private WeekDTO buildWeekScheduleDTO(Week week) {
+        List<EmployeeDTO> employees = employeeService.getAllEmployees();
+
+        List<Shift> shifts = shiftRepository
+                .findByWeekId(week.getId());
+
+        Map<Long, List<Shift>> shiftsByEmployeeId = shifts.stream()
+                .collect(Collectors.groupingBy(shift -> shift.getEmployee().getId()));
+
+        List<ShiftAssignmentDTO> assignments = employees.stream()
+                .map(employee -> {
+                    ShiftAssignmentDTO dto = new ShiftAssignmentDTO();
+                    dto.setEmployeeId(employee.getEmployeeId());
+
+                    List<ShiftDTO> employeeShifts = shiftsByEmployeeId
+                            .getOrDefault(employee.getEmployeeId(), List.of())
+                            .stream()
+                            .map(this::mapToShiftAssignmentDTO)
+                            .toList();
+
+                    dto.setShifts(employeeShifts);
+                    return dto;
+                })
+                .toList();
+
+        WeekDTO dto = new WeekDTO();
+        dto.setYear(week.getYear());
+        dto.setWeekNumber(week.getWeekNumber());
+        dto.setStartDate(week.getWeekStartDate());
+        dto.setStatus(week.getStatus());
+        dto.setEmployees(employeeService.getAllEmployees());
+        dto.setAssignments(assignments);
+        dto.setExistingWeek(true);
+
+        return dto;
     }
     ```
 
-- **buildEmptyTemplate(`year`, `weekNumber`)** is invoked when a year-weekNumber pair DON'T exist, and returns a WeekDTO with empty shift-assignments:
+- **buildEmptyTemplate(`year`, `weekNumber`)** is invoked when a year-weekNumber pair DOESN'T exist, and returns a WeekDTO with empty shift-assignments:
 
     ```json
     // WeekDTO with empty shift-assignments payload response example:
@@ -101,6 +140,23 @@ public WeekDTO getWeek(int year, int weekNumber) {
         "status": null,
         "weekNumber": 42,
         "year": 2026
+    }
+    ```
+    ```java
+    // Full code
+    private WeekDTO buildEmptyTemplate(int year, int weekNumber) {
+        LocalDate weekStart = WeekUtil.getStartOfIsoWeek(year, weekNumber);
+
+        WeekDTO dto = new WeekDTO();
+        dto.setYear(year);
+        dto.setWeekNumber(weekNumber);
+        dto.setStartDate(weekStart);
+        dto.setStatus(null);
+        dto.setEmployees(employeeService.getAllEmployees());
+        dto.setAssignments(List.of());
+        dto.setExistingWeek(false);
+
+        return dto;
     }
     ```
 
@@ -236,7 +292,7 @@ this.route.paramMap
 </form>
 ```
 
-### 2. When the save button is clicked, this function is invoked on which the service for sending it to the backend will be also invoked:
+### 2. When the save button is clicked, this function is invoked:
 
 ```typescript
 save(): void {
@@ -244,6 +300,7 @@ save(): void {
 
     const raw = this.form.getRawValue();
 
+    // payload is built here through the form template
     const payload: SaveWeekDTO = {
         year: raw.year ?? 0,
         weekNumber: raw.weekNumber ?? 0,
@@ -275,6 +332,7 @@ save(): void {
 
     console.log('Sending payload:', payload);
 
+    // and then the http call sends the payload to the backend
     this.scheduleService.saveWeek(payload).subscribe({
         next: () => console.log('Saved'),
         error: (err) => console.error(err),
@@ -304,6 +362,13 @@ public void saveWeek(@RequestBody SaveWeekDTO dto) {
 ```java
 @Transactional
 public void saveWeek(SaveWeekDTO dto) {
+
+    DemoSession demoSession = demoSessionRepository
+                .findById(demoSessionId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Demo session not found or invalid"
+                ));
+
     Week week = weekRepository
             .findByYearAndWeekNumber(
                     dto.getYear(),
@@ -315,7 +380,7 @@ public void saveWeek(SaveWeekDTO dto) {
                 newWeek.setWeekNumber(dto.getWeekNumber());
                 newWeek.setWeekStartDate(dto.getWeekStartDate());
                 newWeek.setStatus(Week.Status.DRAFT);
-                newWeek.setDemoSession(null);
+                newWeek.setDemoSession(demoSession);
                 return weekRepository.save(newWeek);
             });
     week.setWeekStartDate(dto.getWeekStartDate());
