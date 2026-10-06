@@ -430,7 +430,7 @@ private void saveOrUpdateAssignment(
     newShift.setEndsAt(dto.getEndsAt());
     newShift.setEmployee(employee);
     newShift.setWeek(week);
-    newShift.setDemoSession(null);
+    newShift.setDemoSession(demoSession);
 
     shiftRepository.save(newShift);
 }
