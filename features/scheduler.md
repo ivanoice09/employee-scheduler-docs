@@ -4,10 +4,10 @@ This document describes how the scheduler feature retrieves and persists weekly 
 
 Sections:
 
-1. Retreiving shift-assignments
-2. Saving and editing shift-assignments
+1. [Retreiving Schedule](#retreiving-schedule)
+2. [Saving and Editing Schedule](#saving-and-editing-schedule)
 
-## Retreiving shift-assignments
+## Retreiving Schedule
 
 1. When the app starts, a http GET request is sent to the server. Please see the details on how the app starts on `startup.md`.
 
@@ -184,7 +184,7 @@ Sections:
     }
     ```
 
-## Saving and editing shift-assignments
+## Saving and Editing Schedule
 
 1. Once the user has added a shift at least on one of the shift-cells they're now able to save it to the backend through this form template:
 

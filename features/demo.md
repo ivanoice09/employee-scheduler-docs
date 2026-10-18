@@ -45,27 +45,22 @@ For simplicity, session management is implemented using a cookie-based approach.
   }
   ```
 
-2. A row of demo*sessions and a `cookie` is generated or read by `DemoSessionHelper` through \_any* requests(GET, POST, DELETE, UPDATE).
+2. A row of demo_sessions and a `cookie` is generated or read by `DemoSessionRequestUtil` through any requests(GET, POST, DELETE, UPDATE).
 
    ```java
    // Inside ScheduleController
    // This snippet of code will be inside of all existing endpoints.
-   @GetMapping("/{year}/{week}")
-   public WeekDTO getWeek(@PathVariable int year,
-                          @PathVariable int week,
-                          HttpServletRequest request,
-                          HttpServletResponse response
-   ) {
-       // extract the UUID received from the backend, if it doesn't exist...
-       UUID demoSessionId = demoSessionHelper
-               .readOrCreateDemoSessionID(request, response) // create it
-               .orElseThrow(() -> new IllegalStateException(
-                       "Could not resolve cookie"
-               ));
-
-       return scheduleService.getWeek(year, week, demoSessionId);
-   }
+    @GetMapping("/{year}/{week}")
+    public WeekDTO getWeek(@PathVariable int year,
+                           @PathVariable int week,
+                           HttpServletRequest request
+    ) {
+        UUID demoSessionId = DemoSessionRequestUtil.getDemoSessionId(request);
+        return scheduleService.getWeek(year, week, demoSessionId);
+    }
    ```
+
+3. Non
 
 3. If the `cookie` which was read from the request is invalid, null or expired then a new one will be created by `DemoSessionHelper`.
 
@@ -103,6 +98,7 @@ For simplicity, session management is implemented using a cookie-based approach.
        demoSessionRepository.deleteByCreatedAtBefore(expirationTime);
    }
    ```
+
    ```java
    // Don't forget to annotate the application runner with @EnableScheduling to run the method above
    @SpringBootApplication
@@ -137,6 +133,7 @@ For simplicity, session management is implemented using a cookie-based approach.
     return Optional.of(newDemoSessionId);
    }
    ```
+
    ```java
    // sets the cookie's expiry on the response's headers
     private void sendExpirationHeader(HttpServletResponse response, DemoSession demoSession) {
@@ -155,80 +152,79 @@ For simplicity, session management is implemented using a cookie-based approach.
 
 6. The reponse's header which holds the expiry timestamp, will be received by the interceptor in angular:
 
-    ```typescript
-    export const demoSessionInterceptor: HttpInterceptorFn = (req, next) => {
-    const demoSessionHelper = inject(DemoSessionHelper);
+   ```typescript
+   export const demoSessionInterceptor: HttpInterceptorFn = (req, next) => {
+     const demoSessionHelper = inject(DemoSessionHelper);
 
-    return next(req).pipe(
-        tap((event: HttpEvent<unknown>) => {
-                if (!(event instanceof HttpResponse)) {
-                    return;
-                }
+     return next(req).pipe(
+       tap((event: HttpEvent<unknown>) => {
+         if (!(event instanceof HttpResponse)) {
+           return;
+         }
 
-                // extraction of the cookie's expiry through the headers...
-                const expiresAtHeader = event.headers.get(
-                    'X-Demo-Session-Expires-At',
-                );
+         // extraction of the cookie's expiry through the headers...
+         const expiresAtHeader = event.headers.get("X-Demo-Session-Expires-At");
 
-                if (!expiresAtHeader) {
-                    return;
-                }
+         if (!expiresAtHeader) {
+           return;
+         }
 
-                // and then converted to number
-                const expiresAtMillis = Number(expiresAtHeader);
+         // and then converted to number
+         const expiresAtMillis = Number(expiresAtHeader);
 
-                if (Number.isFinite(expiresAtMillis)) {
-                    // IMPORTANT: invokes a helper class which will be one who's managing the expiry
-                    demoSessionHelper.start(expiresAtMillis);
-                }
-            }),
-        );
-    };
-    ```
+         if (Number.isFinite(expiresAtMillis)) {
+           // IMPORTANT: invokes a helper class which will be one who's managing the expiry
+           demoSessionHelper.start(expiresAtMillis);
+         }
+       }),
+     );
+   };
+   ```
 
 7. The angular's DemoSessionHelper method will do the calculation, so the value can be used on any template.
 
-    ```typescript
-    // Inside DemoSessionHelper Service:
-    start(expiresAtMillis: number): void {
-        this.timerSubscription?.unsubscribe();
+   ```typescript
+   // Inside DemoSessionHelper Service:
+   start(expiresAtMillis: number): void {
+       this.timerSubscription?.unsubscribe();
 
-        const update = () => {
-            const remainingSeconds = Math.max(
-                0, 
-                Math.ceil((expiresAtMillis - Date.now()) / 1000)
-            );
+       const update = () => {
+           const remainingSeconds = Math.max(
+               0,
+               Math.ceil((expiresAtMillis - Date.now()) / 1000)
+           );
 
-            this.remainingSecondsSubject.next(remainingSeconds);
+           this.remainingSecondsSubject.next(remainingSeconds);
 
-            if (remainingSeconds === 0) {
-                this.timerSubscription?.unsubscribe();
-            }
-        };
+           if (remainingSeconds === 0) {
+               this.timerSubscription?.unsubscribe();
+           }
+       };
 
-        update();
-        this.timerSubscription = interval(1000).subscribe(update);
-    }
+       update();
+       this.timerSubscription = interval(1000).subscribe(update);
+   }
 
-    // this value can now be utilized into any template in the project
-    readonly remainingSeconds$ = this.remainingSecondsSubject.asObservable();
-    ```
+   // this value can now be utilized into any template in the project
+   readonly remainingSeconds$ = this.remainingSecondsSubject.asObservable();
+   ```
 
 8. Now just use the variable `remainingSeconds$` into any template via DI:
 
-    ```typescript
-    // Inside any component:
-    private demoSessionHelper = inject(DemoSessionHelper);
-    remainingSeconds$ = this.demoSessionHelper.remainingSeconds$;
-    ```
-    ```html
-    <!-- Render in the template -->
-    @if (remainingSeconds$ | async; as remainingSeconds) {
-        <div class="demo-session-timer">
-            Session expires: {{ remainingSeconds | demoSessionTimer}}s
-        </div>
-    }
-    ```
+   ```typescript
+   // Inside any component:
+   private demoSessionHelper = inject(DemoSessionHelper);
+   remainingSeconds$ = this.demoSessionHelper.remainingSeconds$;
+   ```
+
+   ```html
+   <!-- Render in the template -->
+   @if (remainingSeconds$ | async; as remainingSeconds) {
+   <div class="demo-session-timer">
+     Session expires: {{ remainingSeconds | demoSessionTimer}}s
+   </div>
+   }
+   ```
 
 ## Problems and solutions
 
@@ -319,7 +315,6 @@ For simplicity, session management is implemented using a cookie-based approach.
   ```
 
 - 1.3 **Solution 2**: the first solution didnt work; the demo_sessions row still remained even after the simplification of the code. So the plan now **is to not delete the expired session during the request**. Keep the per-request expiration check only to decide whether to issue a new `cookie`, and let the scheduled cleanup remove the old database rows.
-
   - `Why this is better?`: The browser cookie expiration already prevents the visitor from continuing to use the old demo session: when they send the expired cookie, tje helper detects it, creates a fresh session, and returns a new cookie. The old `demo_sessions row` is then just temporary garbage. The scheduler already deletes it correctly, so synchronous deletion during the request adds complexity and a failure point without improving the user experience.
 
   - `Further simplification`: ON CASCADE DELETE solution was kept, and DemoSessionUtil is now removed:
